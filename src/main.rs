@@ -1,29 +1,66 @@
+use std::io::BufRead;
+
 use lindera::tokenizer::Tokenizer;
 
 use rand::Rng;
 
 
+const IS_NECO: bool = true;
+const NECO: &str = "./neko.txt";
+const WIKI40: &str = "./wiki40b.txt";
 
 fn main() {
 
+    
+
+    let string = if IS_NECO {
+        //ファイル全体を一気に読み込み
+        println!("start reading file");
+        std::fs::read_to_string(NECO).unwrap()
+    }else {
+        //_START_PARAGRAPH_の次の行だけを文字列として読み込み
+        let file = std::fs::File::open(WIKI40).unwrap();
+        let lines = std::io::BufReader::new(file);
+
+        let mut paragraphs = String::new();
+        let mut next_is_paragraph = false;
+        for (i, line) in lines.lines().enumerate() {
+            if let Ok(string) = line {
+                //paraghaphのみを追加
+                if next_is_paragraph == true {
+                    paragraphs.push_str(&string);
+                    next_is_paragraph = false;
+
+                //そうでなければ次がパラグラフか検証
+                }else if string == "_START_PARAGRAPH_" {
+                    next_is_paragraph = true;
+                }
+            }else {
+                println!("unable to read line '{}'", i);
+            }
+        }
+        //これをstringに格納する
+        paragraphs
+    };
+    
     //create tokenizer
     let tokenizer = Tokenizer::new().unwrap();
-
-    //ファイル全体を一気に読み込み
-    println!("start reading file");
-    let string = std::fs::read_to_string("./text.txt").unwrap();
-
+    
     //tokenize the text
     println!("start tokenizeing");
-    let tokens = tokenizer.tokenize(&string).unwrap();
-
+    let mut tokens: Vec<&str> = Vec::new();
+    for line in string.lines() {
+        let mut temp_tokens = tokenizer.tokenize_str(line).unwrap();
+        tokens.append(&mut temp_tokens);
+    }
+    
     //Ngram辞書の作成
     println!("start counting");
     //まず２個ずつのペアで集計
     use std::collections::HashMap;
     let mut counter: HashMap<(&str, &str), u32> = HashMap::new();
-    for (token1, token2) in tokens[..tokens.len() - 1].iter().zip(tokens[1..].iter()) {
-        let bi_gram = (token1.text, token2.text);
+    for (&str1, &str2) in tokens[..tokens.len() - 1].iter().zip(tokens[1..].iter()) {
+        let bi_gram = (str1, str2);
         //あれば+1して、無ければ1で初期化。
         counter.entry(bi_gram).and_modify(|counter| *counter += 1).or_insert(1);
     }
